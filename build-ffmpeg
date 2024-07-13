@@ -6,13 +6,13 @@
 # LICENSE: https://github.com/markus-perl/ffmpeg-build-script/blob/master/LICENSE
 #
 PROGNAME=$(basename "$0")
-FFMPEG_VERSION=6.0
+FFMPEG_VERSION=7.0.1
 SCRIPT_VERSION=1.46
 CWD=$(pwd)
 PACKAGES="${CWD}/packages"
 WORKSPACE="${CWD}/workspace"
-CFLAGS="-I${WORKSPACE}/include"
-LDFLAGS="-L${WORKSPACE}/lib"
+CFLAGS="-mcpu=native -I${WORKSPACE}/include"
+LDFLAGS="-mcpu=native -L${WORKSPACE}/lib"
 LDEXEFLAGS=""
 EXTRALIBS="-ldl -lpthread -lm -lz"
 CONFIGURE_OPTIONS=()
@@ -644,7 +644,7 @@ else
 
     download "https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz"
 
-    execute ./configure --prefix="${WORKSPACE}" --disable-shared --enable-static
+    execute ./configure --prefix="${WORKSPACE}" --disable-shared --enable-static CFLAGS="${CFLAGS}" CPPFLAGS="${CPPFLAGS}" LDFLAGS="${LDFLAGS}"
     execute make -j ${MJOBS}
     execute make install
 
@@ -789,7 +789,7 @@ if ${NONFREE_AND_GPL}; then
   if build "x264" "latest"; then
 
     clone "https://code.videolan.org/videolan/x264.git" "x264-latest"
-    execute ./configure --prefix="${WORKSPACE}" --enable-static --enable-pic
+    execute ./configure --prefix="${WORKSPACE}" --enable-static --enable-pic --enable-lto --extra-cflags="${CFLAGS}" --extra-ldflags="${LDFLAGS}"
 
     execute make -j ${MJOBS}
     execute make install
@@ -837,17 +837,17 @@ if ${NONFREE_AND_GPL} && (isAppleSilicon || [[ ! "${TARGET_ARCH}" == "arm"* ]]) 
     mkdir -p 8bit 10bit 12bit
 
     cd 12bit || exit
-    execute cmake ../../../source -DCMAKE_INSTALL_PREFIX="${WORKSPACE}" -DENABLE_SHARED=OFF -DBUILD_SHARED_LIBS=OFF -DHIGH_BIT_DEPTH=ON -DENABLE_HDR10_PLUS=ON -DEXPORT_C_API=OFF -DENABLE_CLI=OFF -DMAIN12=ON
+    execute cmake -E env LDFLAGS="${LDFLAGS}" CXXFLAGS="${CFLAGS}" cmake ../../../source -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=TRUE -DCMAKE_INSTALL_PREFIX="${WORKSPACE}" -DENABLE_SHARED=OFF -DBUILD_SHARED_LIBS=OFF -DHIGH_BIT_DEPTH=ON -DENABLE_HDR10_PLUS=ON -DEXPORT_C_API=OFF -DENABLE_CLI=OFF -DMAIN12=ON
     execute make -j ${MJOBS}
 
     cd ../10bit || exit
-    execute cmake ../../../source -DCMAKE_INSTALL_PREFIX="${WORKSPACE}" -DENABLE_SHARED=OFF -DBUILD_SHARED_LIBS=OFF -DHIGH_BIT_DEPTH=ON -DENABLE_HDR10_PLUS=ON -DEXPORT_C_API=OFF -DENABLE_CLI=OFF
+    execute cmake -E env LDFLAGS="${LDFLAGS}" CXXFLAGS="${CFLAGS}" cmake ../../../source -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=TRUE -DCMAKE_INSTALL_PREFIX="${WORKSPACE}" -DENABLE_SHARED=OFF -DBUILD_SHARED_LIBS=OFF -DHIGH_BIT_DEPTH=ON -DENABLE_HDR10_PLUS=ON -DEXPORT_C_API=OFF -DENABLE_CLI=OFF
     execute make -j ${MJOBS}
 
     cd ../8bit || exit
     ln -sf ../10bit/libx265.a libx265_main10.a
     ln -sf ../12bit/libx265.a libx265_main12.a
-    execute cmake ../../../source -DCMAKE_INSTALL_PREFIX="${WORKSPACE}" -DENABLE_SHARED=OFF -DBUILD_SHARED_LIBS=OFF -DEXTRA_LIB="x265_main10.a;x265_main12.a;-ldl" -DEXTRA_LINK_FLAGS=-L. -DLINKED_10BIT=ON -DLINKED_12BIT=ON
+    execute cmake -E env LDFLAGS="${LDFLAGS}" CXXFLAGS="${CFLAGS}" cmake ../../../source -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=TRUE -DCMAKE_INSTALL_PREFIX="${WORKSPACE}" -DENABLE_SHARED=OFF -DBUILD_SHARED_LIBS=OFF -DEXTRA_LIB="x265_main10.a;x265_main12.a;-ldl" -DEXTRA_LINK_FLAGS=-L. -DLINKED_10BIT=ON -DLINKED_12BIT=ON
     execute make -j ${MJOBS}
 
     mv libx265.a libx265_main.a
@@ -1209,7 +1209,7 @@ if ${NONFREE_AND_GPL}; then
 
     download "https://downloads.sourceforge.net/project/opencore-amr/fdk-aac/fdk-aac-2.0.2.tar.gz" "fdk-aac-2.0.2.tar.gz"
 
-    execute ./configure --prefix="${WORKSPACE}" --disable-shared --enable-static --enable-pic
+    execute ./configure --prefix="${WORKSPACE}" --disable-shared --enable-static --enable-pic CFLAGS="${CFLAGS}" CPPFLAGS="${CFLAGS}" LDFLAGS="${LDFLAGS}"
     execute make -j ${MJOBS}
     execute make install
 
@@ -1438,7 +1438,7 @@ fi
 
 build "ffmpeg" "${FFMPEG_VERSION}"
 
-download "https://github.com/FFmpeg/FFmpeg/archive/refs/heads/release/${FFMPEG_VERSION}.tar.gz" "FFmpeg-release-${FFMPEG_VERSION}.tar.gz"
+download "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.gz" "FFmpeg-release-${FFMPEG_VERSION}.tar.gz"
 
 # shellcheck disable=SC2086
 echo ./configure "${CONFIGURE_OPTIONS[@]}" \
@@ -1447,6 +1447,7 @@ echo ./configure "${CONFIGURE_OPTIONS[@]}" \
   --enable-pthreads \
   --enable-static \
   --enable-version3 \
+  --enable-lto \
   --extra-cflags="${CFLAGS}" \
   --extra-ldexeflags="${LDEXEFLAGS}" \
   --extra-ldflags="${LDFLAGS}" \
@@ -1462,6 +1463,7 @@ echo ./configure "${CONFIGURE_OPTIONS[@]}" \
   --enable-pthreads \
   --enable-static \
   --enable-version3 \
+  --enable-lto \
   --extra-cflags="${CFLAGS}" \
   --extra-ldexeflags="${LDEXEFLAGS}" \
   --extra-ldflags="${LDFLAGS}" \
